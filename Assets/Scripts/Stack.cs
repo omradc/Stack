@@ -1,8 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.SocialPlatforms.Impl;
 
 public class Stack : MonoBehaviour
 {
@@ -17,11 +19,17 @@ public class Stack : MonoBehaviour
     }
     #endregion
 
+    [Header("UNITY SETUP")]
     public TextMeshProUGUI scoreText;
-    public float stackSpeed;
-    public float failTolerance;
+    public TextMeshProUGUI highScoreText;
+    public GameObject scoreObj;
+    public GameObject menuPanel;
     public GameObject stackPrefab;
     public GameObject stackParent;
+
+    [Header("GAME SETUP")]
+    public float stackSpeed;
+    public float failTolerance;
     public float comboScale;
     public float comboNumber;
     public float posX = -5;
@@ -29,42 +37,54 @@ public class Stack : MonoBehaviour
     public float stackHeight = 0.5f;
     public float stackWidth = 3f;
     public float posY;
-
-
-    GameObject currentStack;
-    GameObject stackA;
-    GameObject stackB;
-
     float combo;
+    float highScore;
+    float score;
     float currentSpeed;
     float rePosition;
 
+    [HideInInspector] public GameObject currentStack;
+    GameObject stackA;
+    GameObject stackB;
+
+    [HideInInspector] public bool gameOver;
+    bool restartGame;
     bool zAxisMovement;
     bool startGame;
     bool touchedTheScreen;
-    bool gameOver;
 
     Vector3 stackScale;
     Vector3 trashPos;
     Vector3 trashScale;
+
+    Color color;
     void Start()
     {
+        color = Color.instance;
         stackScale = new Vector3(stackWidth, stackHeight, stackWidth);
-        scoreText.text = $"{0}";
+        highScoreText.text = $"Best: {PlayerPrefs.GetFloat("High Score")}";
     }
 
     void Update()
     {
+        if (Input.GetMouseButtonDown(0) && restartGame == true)
+            SceneManager.LoadScene(0);
+
+        if (Input.GetKeyDown(KeyCode.Space) && restartGame == true)
+            SceneManager.LoadScene(0);
+
         if (gameOver)
             return;
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
         {
             if (StackControl())
             {
+                menuPanel.SetActive(false);
+
                 CreateStack();
                 posY += stackHeight;
-                scoreText.text = $"{posY * 2}";
+                Score();
                 startGame = true;
                 touchedTheScreen = true;
             }
@@ -75,7 +95,7 @@ public class Stack : MonoBehaviour
 
         }
 
-        if (Input.GetMouseButtonUp(0))
+        if (Input.GetMouseButtonUp(0) || Input.GetKeyUp(KeyCode.Space))
             touchedTheScreen = false;
 
         MoveStack();
@@ -86,6 +106,8 @@ public class Stack : MonoBehaviour
         currentStack = Instantiate(stackPrefab, transform.position, transform.rotation);
         currentStack.transform.SetParent(stackParent.transform);
         currentStack.transform.localScale = stackScale;
+
+        color.StackColor(currentStack);
 
         zAxisMovement = !zAxisMovement;
     }
@@ -161,7 +183,9 @@ public class Stack : MonoBehaviour
                 stackA.transform.position = stackB.transform.position + new Vector3(0, stackHeight, 0);
 
                 if (stackA.transform.localScale.z < stackWidth)
+                {
                     Combo(new Vector3(0, 0, comboScale));
+                }
             }
 
 
@@ -204,7 +228,9 @@ public class Stack : MonoBehaviour
                 stackA.transform.position = stackB.transform.position + new Vector3(0, stackHeight, 0);
 
                 if (stackA.transform.localScale.z < stackWidth)
+                {
                     Combo(new Vector3(comboScale, 0, 0));
+                }
             }
 
 
@@ -245,6 +271,8 @@ public class Stack : MonoBehaviour
         cube.transform.localScale = scale;
         cube.transform.position = pos;
         cube.AddComponent<Rigidbody>();
+        cube.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        color.StackColor(cube);
     }
 
     void Combo(Vector3 scale)
@@ -253,7 +281,6 @@ public class Stack : MonoBehaviour
 
         if (combo >= comboNumber)
         {
-            print("ok");
             stackA.transform.localScale += scale;
             stackScale = stackA.transform.localScale;
         }
@@ -265,16 +292,26 @@ public class Stack : MonoBehaviour
         print("Game Over");
         currentStack.AddComponent<Rigidbody>();
 
-        if (Input.GetMouseButtonDown(0))
-        {
-            StartCoroutine("RestartGame");
-        }
-
+        StartCoroutine("RestartDelay");
     }
 
-    IEnumerator RestartGame()
+    IEnumerator RestartDelay()
     {
         yield return new WaitForSeconds(2);
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        restartGame = true;
+    }
+
+    void Score()
+    {
+        scoreObj.SetActive(true);
+        score = (posY * 2) - 1;
+        scoreText.text = $"{score}";
+
+        if (score > PlayerPrefs.GetFloat("High Score"))
+        {
+            highScore = score;
+            PlayerPrefs.SetFloat("High Score", highScore);
+        }
+
     }
 }
